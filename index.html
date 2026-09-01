@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>神流川発電所マスターゲーム</title>
+  <style>
+    :root{
+      --bg:#f6f7f9; --panel:#ffffff; --card:#fafafa; --text:#1f2937;
+      --muted:#6b7280; --border:#d1d5db; --accent:#2563eb; --accent2:#1d4ed8;
+      --good:#15803d; --bad:#b91c1c;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}
+    .wrap{max-width:900px;margin:0 auto;padding:24px}
+    .hero{margin-bottom:18px}
+    h1{font-size:28px;margin:0 0 8px}.sub{color:var(--muted);font-size:14px}
+    .panel{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    label{display:block;font-size:14px;font-weight:700}
+    select,button{font:inherit}
+    select{width:100%;margin-top:8px;padding:12px;border:1px solid var(--border);border-radius:10px;background:white;font-size:16px}
+    button{border:0;border-radius:10px;padding:12px 18px;cursor:pointer;min-height:44px}
+    .primary{background:var(--accent);color:white;font-weight:700}.primary:hover{background:var(--accent2)}
+    .secondary{background:white;border:1px solid var(--border);color:var(--text)}
+    .meta{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+    .meta-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px}
+    .meta-box small{color:var(--muted);display:block}.meta-box strong{display:block;margin-top:3px}
+    .progress{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:12px 0 20px}
+    .progress > div{height:100%;background:var(--accent);width:10%}
+    .question{font-size:22px;font-weight:700;line-height:1.5;margin:8px 0 16px}
+    .concept{font-size:13px;color:var(--muted);font-weight:700}
+    .choices{display:grid;gap:10px}
+    .choice{background:white;border:1px solid var(--border);text-align:left;color:var(--text)}
+    .choice:hover{border-color:var(--accent)}
+    .choice.correct{border-color:var(--good);background:#f0fdf4}
+    .choice.wrong{border-color:var(--bad);background:#fef2f2}
+    .feedback{margin-top:16px;border:1px solid var(--border);border-radius:12px;background:var(--card);padding:14px}
+    .feedback a{word-break:break-all}
+    .hidden{display:none}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    .resultScore{font-size:42px;font-weight:800;margin:10px 0}
+    .note{font-size:13px;color:var(--muted);margin-top:10px}
+    @media(max-width:640px){.wrap{padding:14px}.grid,.meta{grid-template-columns:1fr}.question{font-size:19px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>神流川発電所マスターゲーム</h1>
+    <div class="sub">5テーマ × 4難易度。各条件20問プールから毎回10問をランダム出題。</div>
+  </div>
+
+  <section id="setup" class="panel">
+    <div class="grid">
+      <label>テーマ
+        <select id="themeSelect">
+          <option value="structure">施設構造</option>
+          <option value="equipment">機器</option>
+          <option value="history">建設史</option>
+          <option value="grid">系統運用</option>
+          <option value="dr">DR</option>
+        </select>
+      </label>
+      <label>難易度
+        <select id="levelSelect">
+          <option value="beginner">初級</option>
+          <option value="intermediate">中級</option>
+          <option value="advanced">上級</option>
+          <option value="expert">最難関</option>
+        </select>
+      </label>
+    </div>
+    <div class="actions">
+      <button id="startBtn" class="primary">10問を抽選して開始</button>
+    </div>
+    <div class="note">各テーマ×難易度ごとに20問を保有し、重複なしで10問を抽選します。</div>
+  </section>
+
+  <section id="gamePanel" class="panel hidden">
+    <div class="meta">
+      <div class="meta-box"><small>テーマ</small><strong id="themeLabel"></strong></div>
+      <div class="meta-box"><small>難易度</small><strong id="levelLabel"></strong></div>
+      <div class="meta-box"><small>問題</small><strong><span id="questionNo">1</span> / 10</strong></div>
+      <div class="meta-box"><small>スコア</small><strong><span id="score">0</span> / 100</strong></div>
+    </div>
+    <div class="progress"><div id="progress"></div></div>
+    <div id="conceptLabel" class="concept"></div>
+    <div id="questionText" class="question"></div>
+    <div id="choices" class="choices"></div>
+    <div id="feedback" class="feedback hidden">
+      <div id="result" style="font-weight:700"></div>
+      <p id="explanation"></p>
+      <div style="border-top:1px solid var(--border);padding-top:10px">
+        <small style="color:var(--muted);font-weight:700">参考URL</small><br>
+        <a id="sourceLink" target="_blank" rel="noopener noreferrer"></a>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="nextBtn" class="primary" disabled>次へ</button>
+      <button id="rerollBtn" class="secondary">同条件で10問再抽選</button>
+      <button id="settingsBtn" class="secondary">テーマ選択へ</button>
+    </div>
+  </section>
+
+  <section id="finishPanel" class="panel hidden">
+    <small style="color:var(--muted);font-weight:700">RESULT</small>
+    <div id="finalScore" class="resultScore"></div>
+    <p id="finalMessage"></p>
+    <div class="actions">
+      <button id="finishRerollBtn" class="primary">同条件でもう10問</button>
+      <button id="finishSettingsBtn" class="secondary">別テーマを選ぶ</button>
+    </div>
+  </section>
+</div>
+
+<script>
+const sources={
+ main:'https://www.tepco.co.jp/rp/business/hydroelectric_power/domestic/main.html',
+ ueno:'https://www.tepco.co.jp/rp/business/hydroelectric_power/mechanism/dam/list/ueno.html',
+ minami:'https://www.tepco.co.jp/rp/business/hydroelectric_power/mechanism/dam/list/minamiaiki.html',
+ kajima:'https://www.kajima.co.jp/tech/c_projects/ex/2005knngwh/index.html',
+ press2005:'https://www.tepco.co.jp/cc/press/05122201-j.html',
+ press2012:'https://www.tepco.co.jp/cc/press/2012/1205191_1834.html',
+ hitachi:'https://www.hitachihyoron.com/jp/pdf/2007/02/2007_02_05.pdf',
+ hydro:'https://www.hm-hydro.com/business/products/index.html',
+ governor:'https://sts.kahaku.go.jp/sts/detail.php?no=901390200035',
+ eprx:'https://www.eprx.or.jp/outline/outline.html',
+ adjust:'https://www.tepco.co.jp/forecast/html/adjust-j.html',
+ bs:'https://www4.tepco.co.jp/pg/consignment/reserve/bs2030/index-j.html'
+};
+
+const base={
+ structure:[
+ ['上部調整池','南相木ダム',['上野ダム','矢木沢ダム','奈良俣ダム'],'上部調整池は長野県南相木村の南相木ダムです。',sources.main],
+ ['下部調整池','上野ダム',['南相木ダム','矢木沢ダム','佐久間ダム'],'下部調整池は群馬県上野村の上野ダムです。',sources.ueno],
+ ['有効落差','653 m',['120 m','350 m','1,532 m'],'設計有効落差は653 mです。',sources.main],
+ ['上野ダム堤高','120 m',['136 m','52 m','216 m'],'上野ダムの堤高は120 mです。',sources.ueno],
+ ['南相木ダム堤高','136 m',['120 m','153 m','350 m'],'南相木ダムの堤高は136 mです。',sources.minami],
+ ['上野ダム形式','重力式コンクリートダム',['ロックフィルダム','アーチダム','バットレスダム'],'上野ダムは重力式コンクリートダムです。',sources.ueno],
+ ['南相木ダム形式','ロックフィルダム',['重力式コンクリートダム','アーチダム','中空重力式ダム'],'南相木ダムは中央土質遮水壁型ロックフィルダムです。',sources.minami],
+ ['地下深度','約500 m',['約50 m','約150 m','約1,500 m'],'地下発電所は山体内の地下約500 mに位置します。',sources.kajima],
+ ['主機室寸法','約52×33×216 m',['約12×10×40 m','約136×120×350 m','約65×50×500 m'],'1号水路系主機室の代表寸法です。',sources.kajima],
+ ['水系関係','上池は信濃川水系、下池は利根川水系',['両方利根川水系','両方信濃川水系','上池は利根川水系、下池は信濃川水系'],'異なる水系を中央分水嶺の地下水路で結ぶ特徴的な構成です。',sources.main]
+ ],
+ equipment:[
+ ['単機出力','470 MW',['525 MW','940 MW','2,820 MW'],'1基あたり470 MWです。',sources.main],
+ ['発電電動機容量','525 MVA',['470 MVA','940 MVA','2,820 MVA'],'発電電動機容量は525 MVAです。',sources.hitachi],
+ ['回転速度','500 rpm',['50 rpm','1,500 rpm','3,000 rpm'],'定格回転速度は500 rpmです。',sources.hitachi],
+ ['水車形式','立軸単段フランシスポンプ水車',['ペルトン水車','カプラン水車','クロスフロー水車'],'高落差揚水用のフランシスポンプ水車です。',sources.hitachi],
+ ['スプリッタランナ','世界初実用化',['国内初の火力技術','潮流発電専用','原子力専用'],'1号機でスプリッタランナが世界初実用化されました。',sources.press2012],
+ ['効率向上','約4%',['約0.4%','約14%','約40%'],'スプリッタランナにより発電効率が約4%向上したと公表されています。',sources.press2012],
+ ['増出力','約20 MW',['約2 MW','約200 MW','約470 MW'],'単機約2万kWの増出力とされています。',sources.press2012],
+ ['既設機方式','定速発電電動機',['可変速機','直流機','誘導機のみ'],'既設1・2号機は定速発電電動機です。',sources.hydro],
+ ['同期機','三相同期発電電動機',['直流発電機','単相誘導機','永久磁石DC機'],'発電時と揚水時の双方で使用する同期機です。',sources.hitachi],
+ ['ガバナ','速度・出力制御に関与する',['ダム堤体の高さを変える','水質だけを制御する','送電線を物理的に伸縮させる'],'高度な水車ガバナ制御が適用されています。',sources.governor]
+ ],
+ history:[
+ ['調査所設置','1993年',['1983年','1997年','2005年'],'神流川水力調査所は1993年7月に設置されました。',sources.press2005],
+ ['電調審','1995年',['1990年','1997年','2012年'],'第130回電源開発調整審議会は1995年です。',sources.press2005],
+ ['本体着工','1997年',['1993年','2003年','2005年'],'本格建設工事は1997年に開始されました。',sources.press2005],
+ ['上野ダム湛水','2003年',['1997年','2004年','2012年'],'上野ダムは2003年に湛水開始です。',sources.press2005],
+ ['南相木ダム湛水','2004年',['2003年','2005年','2012年'],'南相木ダムは2004年に湛水開始です。',sources.press2005],
+ ['1号機運開','2005年',['1997年','2010年','2012年'],'1号機は2005年12月に営業運転開始しました。',sources.press2005],
+ ['2号機運開','2012年',['2005年','2008年','2016年'],'2号機は2012年6月に営業運転開始しました。',sources.press2012],
+ ['2号機前倒し','約1か月',['約1日','約1年','約10年'],'2号機は当初計画より約1か月前倒しで運開しました。',sources.press2012],
+ ['段階整備','最終6基計画に対する段階整備',['6基同時運開','1基のみ計画','全基廃止済み'],'現在は1・2号機が運転し、最終計画は6基です。',sources.main],
+ ['歴史的役割','昼夜需要差の平準化',['河川航行専用','原子炉冷却専用','通信設備専用'],'揚水は歴史的に夜間余剰を昼間ピークへ移す役割を担ってきました。',sources.main]
+ ],
+ grid:[
+ ['現有出力','940 MW',['470 MW','525 MW','2,820 MW'],'470 MW×2基で940 MWです。',sources.main],
+ ['最終計画出力','2,820 MW',['940 MW','525 MW','653 MW'],'470 MW×6基の計画です。',sources.main],
+ ['余剰時','揚水運転で電力を吸収',['発電運転で供給を増やす','停止のみ','送電線切離しのみ'],'余剰電力を使って下池から上池へ揚水します。',sources.adjust],
+ ['逼迫時','発電運転で供給力となる',['揚水運転','停止のみ','変圧器停止'],'上池の位置エネルギーを電力に戻します。',sources.adjust],
+ ['GF','比較的高速な周波数応答に関係',['ダム築堤のみ','岩盤分類のみ','洪水吐のみ'],'ガバナは水車の速度・出力制御に関わります。',sources.governor],
+ ['LFC','自動出力調整に関係',['ダム堤高制御','水質測定のみ','岩石分類'],'LFCは需給偏差に対する発電出力調整に関係します。',sources.adjust],
+ ['市場参加','要件を満たせば需給調整市場のリソースとなり得る',['絶対参加不可','DRだけが可能','火力だけが可能'],'揚水は制度上、調整力リソースとなり得ます。',sources.eprx],
+ ['定速制約','揚水中の連続入力調整に可変速機より制約',['完全に自由','入力は常にゼロ','周波数と無関係'],'定速揚水と可変速揚水では調整自由度が異なります。',sources.hydro],
+ ['ブラックスタート','神流川個別の現行契約は公開情報だけでは断定困難',['必ず契約済み','絶対不可能','制度自体がない'],'一般論としての能力と個別契約実績を分ける必要があります。',sources.bs],
+ ['同期慣性','系統連系中に回転体としての慣性を持つ',['慣性ゼロ','DCのみ','蓄熱だけ'],'同期発電電動機は回転体として慣性を持ちます。',sources.hitachi]
+ ],
+ dr:[
+ ['上げDR','需要を増やすDR',['需要を減らすDR','停電復旧専用','水車制御専用'],'余剰時の需要創出は上げDRです。',sources.eprx],
+ ['下げDR','需要を減らすDR',['需要を増やすDR','揚水専用','GF専用'],'逼迫時の需要抑制は下げDRです。',sources.eprx],
+ ['補完関係','揚水とDRは補完的な柔軟性資源',['常に直接通信する同一設備','完全に無関係','DRが水車そのもの'],'両者は異なる物理リソースとして需給調整に寄与できます。',sources.eprx],
+ ['直接制御','常に直接通信しているとは公開情報から言えない',['必ず直接通信','DRが水車を直接制御','神流川が全需要家を制御'],'市場・系統運用を介した補完と直接設備連携は別です。',sources.eprx],
+ ['余剰時の組合せ','揚水＋上げDR',['発電＋下げDR','発電＋上げDRのみ','停止＋下げDR'],'双方とも余剰電力を吸収する方向です。',sources.eprx],
+ ['逼迫時の組合せ','発電＋下げDR',['揚水＋上げDR','揚水＋下げDRのみ','停止のみ'],'供給増加と需要削減を同時に活用できます。',sources.eprx],
+ ['BESS比較','BESSは充放電双方で高速連続制御しやすい',['絶対できない','水位だけで制御','定速同期機と完全同一'],'BESSと定速揚水では応答特性が異なります。',sources.eprx],
+ ['市場参加','DRも要件を満たせば需給調整市場に参加可能',['参加不可','揚水のみ可能','原子力のみ可能'],'DRも調整力リソースとして扱われます。',sources.eprx],
+ ['kWとkWh','揚水は大容量kWと長時間kWh移送の両面に強み',['kWのみ','kWhのみ','どちらも無関係'],'長時間エネルギーシフトが揚水の重要な強みです。',sources.main],
+ ['役割分担','DRと揚水は異なる物理リソース',['完全に同じ設備','DRはダム設備','揚水は需要家空調'],'需要側柔軟性と大規模蓄エネルギー設備を区別します。',sources.eprx]
+ ]
+};
+
+const themeNames={structure:'施設構造',equipment:'機器',history:'建設史',grid:'系統運用',dr:'DR'};
+const levelNames={beginner:'初級',intermediate:'中級',advanced:'上級',expert:'最難関'};
+
+function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+function buildPool(theme,level){
+  const prompts={
+    beginner:[
+      c=>`「${c}」について正しいものは？`,
+      c=>`神流川発電所を初めて見学する人に「${c}」を説明するなら？`
+    ],
+    intermediate:[
+      c=>`視察メモで「${c}」を整理するとき、最も適切なのは？`,
+      c=>`「${c}」に関する説明として正しいものは？`
+    ],
+    advanced:[
+      c=>`技術資料として「${c}」を記述する場合、最も整合的なのは？`,
+      c=>`「${c}」について、誤解が最も少ない説明は？`
+    ],
+    expert:[
+      c=>`公開情報と一般論を区別して「${c}」を評価する場合、最も妥当なのは？`,
+      c=>`技術報告書で「${c}」を断定する前に採用すべき記述は？`
+    ]
+  };
+  const pool=[];
+  base[theme].forEach((r,i)=>{
+    const [concept,correct,wrong,explain,url]=r;
+    for(let v=0;v<2;v++){
+      let choices=shuffle([correct,...wrong]);
+      pool.push({concept,q:prompts[level][v](concept),choices,answer:choices.indexOf(correct),explain,url});
+    }
+  });
+  return pool;
+}
+
+let selected=[],idx=0,score=0,answered=false,currentTheme='structure',currentLevel='beginner';
+const $=id=>document.getElementById(id);
+
+function startGame(){
+  currentTheme=$('themeSelect').value;
+  currentLevel=$('levelSelect').value;
+  selected=shuffle(buildPool(currentTheme,currentLevel)).slice(0,10);
+  idx=0;score=0;answered=false;
+  $('themeLabel').textContent=themeNames[currentTheme];
+  $('levelLabel').textContent=levelNames[currentLevel];
+  $('setup').classList.add('hidden');
+  $('finishPanel').classList.add('hidden');
+  $('gamePanel').classList.remove('hidden');
+  render();
+}
+
+function render(){
+  const x=selected[idx]; answered=false;
+  $('questionNo').textContent=idx+1;
+  $('score').textContent=score;
+  $('progress').style.width=((idx+1)*10)+'%';
+  $('conceptLabel').textContent=x.concept;
+  $('questionText').textContent=x.q;
+  $('feedback').classList.add('hidden');
+  $('nextBtn').disabled=true;
+  $('choices').innerHTML='';
+  x.choices.forEach((c,i)=>{
+    const b=document.createElement('button');
+    b.className='choice'; b.type='button';
+    b.textContent=String.fromCharCode(65+i)+'. '+c;
+    b.addEventListener('click',()=>answer(i,b));
+    $('choices').appendChild(b);
+  });
+}
+
+function answer(choice,button){
+  if(answered)return; answered=true;
+  const x=selected[idx];
+  [...$('choices').children].forEach((b,i)=>{b.disabled=true;if(i===x.answer)b.classList.add('correct')});
+  if(choice===x.answer){
+    score+=10;
+    $('result').textContent='正解！ +10点';
+  }else{
+    $('result').textContent='不正解。正解は '+String.fromCharCode(65+x.answer)+'。';
+    button.classList.add('wrong');
+  }
+  $('score').textContent=score;
+  $('explanation').textContent=x.explain;
+  $('sourceLink').href=x.url;
+  $('sourceLink').textContent=x.url;
+  $('feedback').classList.remove('hidden');
+  $('nextBtn').disabled=false;
+}
+
+function next(){
+  if(!answered)return;
+  idx++;
+  if(idx>=10){
+    finish();
+    return;
+  }
+  render();
+}
+
+function finish(){
+  $('gamePanel').classList.add('hidden');
+  $('finishPanel').classList.remove('hidden');
+  $('finalScore').textContent=score+' / 100';
+  $('finalMessage').textContent=
+    score>=90
+      ? 'かなり深く理解できています。次は難易度を上げて挑戦してください。'
+      : score>=70
+      ? '主要ポイントは押さえられています。同じ条件を再抽選すると別問題で復習できます。'
+      : '同条件でもう一度挑戦して理解を補強してください。';
+}
+
+function settings(){
+  $('gamePanel').classList.add('hidden');
+  $('finishPanel').classList.add('hidden');
+  $('setup').classList.remove('hidden');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+$('startBtn').addEventListener('click',startGame);
+$('nextBtn').addEventListener('click',next);
+$('rerollBtn').addEventListener('click',startGame);
+$('finishRerollBtn').addEventListener('click',startGame);
+$('settingsBtn').addEventListener('click',settings);
+$('finishSettingsBtn').addEventListener('click',settings);
+</script>
+</body>
+</html>
